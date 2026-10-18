@@ -1,11 +1,12 @@
 import express from "express";
+import "dotenv/config";
 import http from "node:http";
 import cors from "cors";
 import { Server } from "socket.io";
 import { createRoom, getRoom } from "./rooms/roomManager.js";
 
 const app = express();
-const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000'
+const FRONTEND_URL = process.env.FRONTEND_URL
 
 app.use(
   cors({
