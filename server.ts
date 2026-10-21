@@ -3,10 +3,14 @@ import "dotenv/config";
 import http from "node:http";
 import cors from "cors";
 import { Server } from "socket.io";
-import { createRoom, getRoom } from "./rooms/roomManager.js";
+import {
+  createRoom,
+  getRoom,
+  characterAddition,
+} from "./rooms/roomManager.js";
 
 const app = express();
-const FRONTEND_URL = process.env.FRONTEND_URL
+const FRONTEND_URL = process.env.FRONTEND_URL;
 
 app.use(
   cors({
@@ -91,6 +95,62 @@ io.on("connection", (socket) => {
         ok: false,
         error: "Failed to join room",
       });
+    }
+  });
+
+  socket.on("character_select", (data, acknowledge) => {
+    try {
+      if (!data?.roomID || !data?.selectedCharacterId) {
+        if (typeof acknowledge === "function") {
+          return acknowledge({
+            error: "Failed to receive character data",
+          });
+        }
+        return;
+      }
+
+      // Ensure socket is joined to the room
+      socket.join(data.roomID);
+
+      const playerKey = data.player || socket.id;
+      const result = characterAddition({
+        roomID: data.roomID,
+        player: playerKey,
+        selectedCharacterId: data.selectedCharacterId,
+      });
+
+      if (!result.success) {
+        if (typeof acknowledge === "function") {
+          return acknowledge({
+            error: result.error,
+          });
+        }
+        return;
+      }
+
+      const room = getRoom(data.roomID);
+      const selectedCount = Object.keys(room?.selectedCharacters || {}).length;
+
+      if (selectedCount >= 2 && room) {
+        room.status = "playing";
+        io.to(data.roomID).emit("char_selected", {
+          message: "both_char_selec_success",
+          characters: room.selectedCharacters,
+        });
+      }
+
+      if (typeof acknowledge === "function") {
+        acknowledge({
+          message: "Character added to room, waiting for opponent...",
+        });
+      }
+    } catch (error) {
+      console.error(error);
+      if (typeof acknowledge === "function") {
+        acknowledge({
+          error: "Character selection error",
+        });
+      }
     }
   });
 
